@@ -1,0 +1,115 @@
+Build a mobile-responsive prototype web app for “Income Verification” for energy efficiency rebates/incentives.
+
+Product goal:
+- Admin configures Programs and income limits (by household size).
+- Applicants submit an application (household + income + uploads) via a step-by-step flow.
+- System computes preliminary eligibility (Eligible / Not eligible / Needs review).
+- Reviewers work from an Airtable-like table/grid with filters; selecting a row opens a right-side detail drawer (full-screen on mobile).
+- Reviewer can Approve / Deny / Request info. Applicant can upload additional docs via magic link.
+
+Tech requirements:
+- Use Next.js (App Router) + TypeScript.
+- Styling: Tailwind + shadcn/ui components.
+- Forms: React Hook Form + Zod validation.
+- Data layer: Prisma + SQLite for MVP.
+- Auth:
+  - Reviewer/Admin: email + password (simple auth, hashed passwords).
+  - Applicant: magic link token (no password). Generate a token on “start application” and store it; applicant returns via /apply/{token}.
+- File uploads:
+  - Store uploaded files in local filesystem under /uploads (MVP).
+  - Save metadata in DB (filename, path, mime, size, uploadedAt).
+  - UI should show upload progress and handle multiple files.
+- Responsive behavior:
+  - At <768px: grid becomes card list; drawer becomes full-screen sheet; sticky bottom action bar for reviewer decisions.
+  - Touch targets >=44px and no hover-only controls.
+
+UI/UX direction (Airtable-like):
+- Reviewer/Admin has a top bar with Program selector + search + user menu.
+- Left nav: Applications, Programs, Limits, Exports (role-based).
+- Applications screen:
+  - Desktop: table/grid with columns: Status, Applicant, Program, Submitted, Household size, Declared income, Limit, Result.
+  - Filter chips: Status, Program, Date range. Sort by Submitted desc default.
+  - Clicking a row opens a right-side drawer with tabs: Overview, Documents, Activity.
+  - Sticky actions in drawer: Approve, Deny, Request info.
+- Applicant experience (TurboTax-like stepper):
+  1) Program + address
+  2) Household size
+  3) Income (MVP: annual gross income single number)
+  4) Upload documents
+  5) Review & submit
+  - Autosave draft after each step.
+
+Business logic (Eligibility Engine):
+- Each Program has an IncomeLimit table: householdSize -> limitAmount.
+- When submitted:
+  - declaredIncomeTotal = applicantAnnualIncome
+  - limit = lookup by householdSize; if not found => Needs review
+  - result:
+    - If declaredIncomeTotal <= limit AND required docs uploaded => Eligible
+    - If declaredIncomeTotal > limit => Not eligible
+    - If docs missing or limit missing => Needs review
+- Store a “ruleVersion” snapshot on the application: program effective date + income limit row used.
+
+Statuses (use these exact values):
+- Draft, Submitted, NeedsInfo, Approved, Denied
+Also store “systemResult”: Eligible, NotEligible, NeedsReview (separate from reviewer status).
+
+Email (MVP):
+- Do not integrate real email. Instead:
+  - When generating an applicant magic link or requesting info, show a “Copy link” UI and log the link to console.
+
+Data model (Prisma):
+- User: id, email, passwordHash, role (Admin|Reviewer), createdAt
+- Program: id, name, regionLabel (string), effectiveStart (date), effectiveEnd (date nullable), createdAt
+- IncomeLimit: id, programId, householdSize (int), limitAmount (int cents), versionLabel (string), createdAt
+- Application: id, programId, applicantName, applicantEmail, applicantPhone, addressLine1, city, state, zip,
+  householdSize (int), annualIncomeCents (int),
+  computedLimitCents (int nullable), systemResult (Eligible|NotEligible|NeedsReview),
+  status (Draft|Submitted|NeedsInfo|Approved|Denied),
+  ruleVersion (string), applicantToken (string unique), submittedAt (date nullable),
+  reviewerId (nullable), createdAt, updatedAt
+- Document: id, applicationId, filename, path, mimeType, sizeBytes, uploadedAt
+- ActivityEvent: id, applicationId, type (Note|System|RequestInfo|StatusChange), message, createdByUserId nullable, createdAt
+
+Routes/pages (Next.js App Router):
+Public applicant:
+- /start (choose program, enter name/email -> creates Draft Application + token -> redirect /apply/{token})
+- /apply/[token] (stepper UI; autosave)
+- /status/[token] (shows current status and missing items; allows doc upload if NeedsInfo)
+Reviewer/Admin (protected):
+- /app/login
+- /app/applications (grid + filters + drawer)
+- /app/programs (grid + drawer editor)
+- /app/programs/[id]/limits (simple grid editor for limits)
+- /app/exports (CSV export button)
+
+API routes:
+- POST /api/auth/login
+- POST /api/applications/start
+- GET /api/applications/by-token/[token]
+- PATCH /api/applications/by-token/[token] (autosave fields)
+- POST /api/applications/by-token/[token]/upload
+- POST /api/applications/by-token/[token]/submit (run eligibility engine)
+- GET /api/applications (list w/ filters)
+- GET /api/applications/[id] (detail)
+- POST /api/applications/[id]/decision (approve/deny/needsinfo + note)
+- CRUD /api/programs and /api/programs/[id]/limits
+- GET /api/exports/applications.csv (server creates CSV)
+
+Implementation details:
+- Use server actions or API routes—either is fine—but keep it consistent.
+- Add seed script to create:
+  - 1 admin user (admin@example.com / password: admin123) for demo
+  - 1 program “Example Rebate Program” with limits for household sizes 1–6
+- Include a README with:
+  - how to run, seed, login, and where uploads are stored
+  - how to demo applicant flow and reviewer flow
+
+Acceptance criteria:
+- Applicant can complete stepper on mobile and desktop, upload docs, submit.
+- System result + calculation breakdown appears in reviewer drawer “Overview”.
+- Reviewer can filter/sort list, open drawer, view docs, add note, request info, approve/deny.
+- Applicant can return via token link, see status, upload more docs when NeedsInfo.
+- Export produces a valid CSV with key fields.
+
+Build it with clean, minimal, professional UI (no flashy visuals), Airtable-like labels and controls, and fully responsive layouts.
