@@ -50,6 +50,11 @@ export const submitDecisionSchema = z.object({
   note: z.string().min(1, "Note is required"),
 });
 
+export const validateZipSchema = z.object({
+  programId: z.number(),
+  zipCode: z.string(),
+});
+
 export const api = {
   auth: {
     login: {
@@ -100,6 +105,23 @@ export const api = {
         404: errorSchemas.notFound,
       }
     },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/programs/:id',
+      input: insertProgramSchema.partial(),
+      responses: {
+        200: z.custom<typeof programs.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    validateZip: {
+      method: 'POST' as const,
+      path: '/api/programs/validate-zip',
+      input: validateZipSchema,
+      responses: {
+        200: z.object({ valid: z.boolean(), message: z.string().nullable() }),
+      }
+    },
   },
   incomeLimits: {
     list: {
@@ -116,7 +138,23 @@ export const api = {
       responses: {
         201: z.custom<typeof incomeLimits.$inferSelect>(),
       }
-    }
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/programs/:id/limits/:limitId',
+      input: insertIncomeLimitSchema.partial().omit({ programId: true }),
+      responses: {
+        200: z.custom<typeof incomeLimits.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/programs/:id/limits/:limitId',
+      responses: {
+        204: z.void(),
+      }
+    },
   },
   applications: {
     // Public Applicant Routes

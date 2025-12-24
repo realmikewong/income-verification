@@ -20,10 +20,13 @@ export interface IStorage {
   getPrograms(): Promise<Program[]>;
   getProgram(id: number): Promise<Program | undefined>;
   createProgram(program: InsertProgram): Promise<Program>;
-  
+  updateProgram(id: number, updates: Partial<Program>): Promise<Program | undefined>;
+
   // Limits
   getIncomeLimits(programId: number): Promise<IncomeLimit[]>;
   createIncomeLimit(limit: InsertIncomeLimit): Promise<IncomeLimit>;
+  updateIncomeLimit(id: number, updates: Partial<IncomeLimit>): Promise<IncomeLimit | undefined>;
+  deleteIncomeLimit(id: number): Promise<void>;
   getIncomeLimitForHousehold(programId: number, size: number): Promise<IncomeLimit | undefined>;
   
   // Applications
@@ -84,6 +87,14 @@ export class DatabaseStorage implements IStorage {
     return newProgram;
   }
 
+  async updateProgram(id: number, updates: Partial<Program>): Promise<Program | undefined> {
+    const [updated] = await db.update(programs)
+      .set(updates)
+      .where(eq(programs.id, id))
+      .returning();
+    return updated;
+  }
+
   // Limits
   async getIncomeLimits(programId: number): Promise<IncomeLimit[]> {
     return await db.select().from(incomeLimits).where(eq(incomeLimits.programId, programId));
@@ -94,8 +105,20 @@ export class DatabaseStorage implements IStorage {
     return newLimit;
   }
 
+  async updateIncomeLimit(id: number, updates: Partial<IncomeLimit>): Promise<IncomeLimit | undefined> {
+    const [updated] = await db.update(incomeLimits)
+      .set(updates)
+      .where(eq(incomeLimits.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteIncomeLimit(id: number): Promise<void> {
+    await db.delete(incomeLimits).where(eq(incomeLimits.id, id));
+  }
+
   async getIncomeLimitForHousehold(programId: number, size: number): Promise<IncomeLimit | undefined> {
-    // Find exact match or closest logic? Requirement says "lookup by householdSize". 
+    // Find exact match or closest logic? Requirement says "lookup by householdSize".
     // Assuming 1-to-1 mapping for MVP.
     const [limit] = await db.select()
       .from(incomeLimits)

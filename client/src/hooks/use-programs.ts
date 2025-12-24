@@ -52,6 +52,33 @@ export function useCreateProgram() {
   });
 }
 
+export function useUpdateProgram() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const url = buildUrl(api.programs.update.path, { id });
+      const res = await fetch(url, {
+        method: api.programs.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update program");
+      return api.programs.update.responses[200].parse(await res.json());
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: [api.programs.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.programs.get.path, id] });
+      toast({
+        title: "Program Updated",
+        description: "Changes saved successfully.",
+      });
+    },
+  });
+}
+
 export function useIncomeLimits(programId: number) {
   return useQuery({
     queryKey: [api.incomeLimits.list.path, programId],
@@ -62,5 +89,75 @@ export function useIncomeLimits(programId: number) {
       return api.incomeLimits.list.responses[200].parse(await res.json());
     },
     enabled: !!programId,
+  });
+}
+
+export function useCreateIncomeLimit() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ programId, data }: { programId: number; data: any }) => {
+      const url = buildUrl(api.incomeLimits.create.path, { id: programId });
+      const res = await fetch(url, {
+        method: api.incomeLimits.create.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to create income limit");
+      return api.incomeLimits.create.responses[201].parse(await res.json());
+    },
+    onSuccess: (_, { programId }) => {
+      queryClient.invalidateQueries({ queryKey: [api.incomeLimits.list.path, programId] });
+      toast({
+        title: "Income Limit Added",
+        description: "New income limit has been created.",
+      });
+    },
+  });
+}
+
+export function useUpdateIncomeLimit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ programId, limitId, updates }: { programId: number; limitId: number; updates: any }) => {
+      const url = buildUrl(api.incomeLimits.update.path, { id: programId, limitId });
+      const res = await fetch(url, {
+        method: api.incomeLimits.update.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update income limit");
+      return api.incomeLimits.update.responses[200].parse(await res.json());
+    },
+    onSuccess: (_, { programId }) => {
+      queryClient.invalidateQueries({ queryKey: [api.incomeLimits.list.path, programId] });
+    },
+  });
+}
+
+export function useDeleteIncomeLimit() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ programId, limitId }: { programId: number; limitId: number }) => {
+      const url = buildUrl(api.incomeLimits.delete.path, { id: programId, limitId });
+      const res = await fetch(url, {
+        method: api.incomeLimits.delete.method,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete income limit");
+    },
+    onSuccess: (_, { programId }) => {
+      queryClient.invalidateQueries({ queryKey: [api.incomeLimits.list.path, programId] });
+      toast({
+        title: "Income Limit Deleted",
+        description: "The income limit has been removed.",
+      });
+    },
   });
 }
