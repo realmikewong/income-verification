@@ -59,6 +59,7 @@ export default function WizardPage() {
 
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<any>({});
+  const [zipValidation, setZipValidation] = useState<{ valid: boolean; message: string | null } | null>(null);
 
   // Sync form data when app loads
   useEffect(() => {
@@ -128,6 +129,26 @@ export default function WizardPage() {
     }
   };
 
+  const handleZipBlur = async () => {
+    if (formData.zip && formData.zip.length === 5 && application) {
+      try {
+        const res = await fetch("/api/programs/validate-zip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            programId: application.programId,
+            zipCode: formData.zip
+          }),
+        });
+        const result = await res.json();
+        setZipValidation(result);
+      } catch (error) {
+        // If validation fails, default to allowing
+        setZipValidation({ valid: true, message: null });
+      }
+    }
+  };
+
   const steps = ["Contact Info", "Household", "Income", "Documents", "Review"];
 
   return (
@@ -177,17 +198,31 @@ export default function WizardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>ZIP Code</Label>
-                  <Input 
-                    value={formData.zip} 
-                    onChange={e => setFormData({...formData, zip: e.target.value})} 
+                  <Input
+                    value={formData.zip}
+                    onChange={e => {
+                      setFormData({...formData, zip: e.target.value});
+                      setZipValidation(null);
+                    }}
+                    onBlur={handleZipBlur}
                     placeholder="10001"
+                    maxLength={5}
+                    className={cn(
+                      zipValidation !== null && !zipValidation.valid && "border-red-500 focus-visible:ring-red-500"
+                    )}
                   />
+                  {zipValidation !== null && !zipValidation.valid && zipValidation.message && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {zipValidation.message}
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label>Phone Number</Label>
-                  <Input 
-                    value={formData.applicantPhone} 
-                    onChange={e => setFormData({...formData, applicantPhone: e.target.value})} 
+                  <Input
+                    value={formData.applicantPhone}
+                    onChange={e => setFormData({...formData, applicantPhone: e.target.value})}
                     placeholder="(555) 555-5555"
                   />
                 </div>

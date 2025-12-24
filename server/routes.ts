@@ -143,6 +143,32 @@ export async function registerRoutes(
     res.json(program);
   });
 
+  app.patch(api.programs.update.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const program = await storage.updateProgram(Number(req.params.id), req.body);
+    if (!program) return res.sendStatus(404);
+    res.json(program);
+  });
+
+  app.post(api.programs.validateZip.path, async (req, res) => {
+    const { programId, zipCode } = req.body;
+    const program = await storage.getProgram(programId);
+
+    if (!program) return res.sendStatus(404);
+
+    try {
+      const allowedZips = JSON.parse(program.allowedZipCodes || "[]");
+      const isValid = allowedZips.length === 0 || allowedZips.includes(zipCode);
+
+      res.json({
+        valid: isValid,
+        message: isValid ? null : "ZIP code is not eligible for this program"
+      });
+    } catch (error) {
+      res.json({ valid: true, message: null }); // Default to allow if parsing fails
+    }
+  });
+
   // Limits
   app.get(api.incomeLimits.list.path, async (req, res) => {
     const limits = await storage.getIncomeLimits(Number(req.params.id));
@@ -156,6 +182,19 @@ export async function registerRoutes(
       programId: Number(req.params.id)
     });
     res.status(201).json(limit);
+  });
+
+  app.patch(api.incomeLimits.update.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const limit = await storage.updateIncomeLimit(Number(req.params.limitId), req.body);
+    if (!limit) return res.sendStatus(404);
+    res.json(limit);
+  });
+
+  app.delete(api.incomeLimits.delete.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    await storage.deleteIncomeLimit(Number(req.params.limitId));
+    res.sendStatus(204);
   });
 
   // Applications (Public)
